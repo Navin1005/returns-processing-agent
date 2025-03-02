@@ -1,0 +1,51 @@
+product_id,return_window_days,accepted_defects,packaging_required
+1,7,Functional defects only,FALSE
+2,14,Any defect allowed,TRUE
+3,7,Any defect allowed,TRUE
+4,30,Original packaging required,FALSE
+5,7,Unopened only,FALSE
+6,7,Any defect allowed,FALSE
+7,30,Unopened only,FALSE
+8,14,Minor scratches allowed,FALSE
+9,7,Functional defects only,FALSE
+10,14,Minor scratches allowed,TRUE
+11,30,Original packaging required,TRUE
+12,14,Minor scratches allowed,FALSE
+13,7,Original packaging required,TRUE
+14,30,Original packaging required,TRUE
+15,30,Any defect allowed,TRUE
+16,30,Original packaging required,TRUE
+17,14,Minor scratches allowed,FALSE
+18,7,Minor scratches allowed,FALSE
+19,14,Original packaging required,FALSE
+20,14,Original packaging required,TRUE
+21,14,Minor scratches allowed,TRUE
+22,30,Unopened only,TRUE
+23,7,Any defect allowed,TRUE
+24,14,Original packaging required,FALSE
+25,30,Minor scratches allowed,FALSE
+26,14,Any defect allowed,TRUE
+27,14,Original packaging required,FALSE
+28,30,Any defect allowed,TRUE
+29,14,Functional defects only,FALSE
+30,30,Functional defects only,TRUE
+31,14,Minor scratches allowed,TRUE
+32,14,Functional defects only,FALSE
+33,7,Unopened only,FALSE
+34,30,Functional defects only,TRUE
+35,30,Functional defects only,FALSE
+36,14,Minor scratches allowed,TRUE
+37,7,Any defect allowed,TRUE
+38,7,Unopened only,FALSE
+39,7,Unopened only,FALSE
+40,7,Unopened only,FALSE
+41,7,Minor scratches allowed,FALSE
+42,14,Any defect allowed,TRUE
+43,7,Original packaging required,FALSE
+44,7,Any defect allowed,TRUE
+45,30,Minor scratches allowed,FALSE
+46,7,Unopened only,FALSE
+47,14,Minor scratches allowed,FALSE
+48,14,Unopened only,TRUE
+49,14,Minor scratches allowed,TRUE
+50,7,Any defect allowed,FALSE
