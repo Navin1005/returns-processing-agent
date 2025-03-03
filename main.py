@@ -20,10 +20,10 @@ app.add_middleware(
 )
 
 # ✅ Initialize OpenAI client
-#client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ✅ Serve React Frontend
-app.mount("/", StaticFiles(directory="build", html=True), name="static")
+#app.mount("/", StaticFiles(directory="build", html=True), name="static")
 
 # ✅ Test API
 @app.get("/api/test")
@@ -33,10 +33,11 @@ def test_api():
 # ✅ Database Connection
 def get_db_connection():
     return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        database=os.getenv("DB_NAME")
+        host="127.0.0.1",  # Use explicit IP instead of "localhost"
+        user=os.getenv("DB_USER", "root"),  # Replace "root" with your DB username if different
+        password=os.getenv("DB_PASS", "root"),  # Replace with your MySQL password
+        database=os.getenv("DB_NAME", "returns_db"),
+        port=3306  # Ensure correct port number
     )
 
 if __name__ == "__main__":
