@@ -1,7 +1,7 @@
 import os
 import mysql.connector
 from datetime import datetime, timedelta
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +10,6 @@ import uvicorn
 app = FastAPI()
 
 # ✅ Enable CORS for frontend communication
-# ✅ Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Replace with frontend URL in production
@@ -19,16 +18,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Check if the API key is being read
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise ValueError("❌ ERROR: OPENAI_API_KEY is missing! Please check your environment variables.")
+# ✅ Load OpenAI API Key from environment variables
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("ERROR: Missing OPENAI_API_KEY environment variable.")
 
-# ✅ Initialize OpenAI client
-client = openai.OpenAI(api_key=api_key)
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-# ✅ Serve React Frontend
-#app.mount("/", StaticFiles(directory="build", html=True), name="static")
+# ✅ Serve React Frontend (Optional, Uncomment if needed)
+# app.mount("/", StaticFiles(directory="build", html=True), name="static")
 
 # ✅ Test API
 @app.get("/api/test")
@@ -37,16 +35,18 @@ def test_api():
 
 # ✅ Database Connection
 def get_db_connection():
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        database=os.getenv("DB_NAME"),
-        port=int(os.getenv("PORT", 8000))
-    )
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    try:
+        conn = mysql.connector.connect(
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            database=os.getenv("DB_NAME"),
+            port=int(os.getenv("PORT", "3306"))  # Default MySQL port
+        )
+        return conn
+    except mysql.connector.Error as err:
+        print(f"Database connection error: {err}")
+        raise HTTPException(status_code=500, detail="Database connection failed.")
 
 # ✅ Function to generate AI response
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
@@ -66,17 +66,17 @@ def generate_ai_response(customer_name, product_name, purchase_date, return_stat
     - End with **a professional signature from the customer service team**.
     """
 
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "system", "content": prompt}]
-    )
-
-    # ✅ Clean AI Response Formatting
-    ai_message = response.choices[0].message.content.strip()
-    ai_message = " ".join(ai_message.splitlines())  # Format into a single-line response
-
-    return ai_message  # ✅ Return formatted AI-generated message
-
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "system", "content": prompt}]
+        )
+        ai_message = response.choices[0].message.content.strip()
+        ai_message = " ".join(ai_message.splitlines())  # Format into a single-line response
+        return ai_message
+    except Exception as e:
+        print(f"OpenAI API Error: {e}")
+        return "There was an issue generating the response."
 
 # ✅ Login Endpoint
 @app.post("/login")
@@ -90,7 +90,6 @@ async def login(email: str = Form(...)):
     if result:
         return {"success": True, "customer_id": result["customer_id"]}
     return {"success": False, "message": "Customer not found"}
-
 
 # ✅ Fetch Customer Purchases
 @app.get("/get-purchases/")
@@ -109,9 +108,7 @@ async def get_purchases(customer_id: int):
     )
     purchases = cursor.fetchall()
     conn.close()
-
     return purchases if purchases else []
-
 
 # ✅ Function to Check Purchase Details
 def get_purchase_details(customer_id, product_id):
@@ -124,7 +121,6 @@ def get_purchase_details(customer_id, product_id):
     result = cursor.fetchone()
     conn.close()
     return result[0] if result else None
-
 
 # ✅ Function to Fetch Return Policy Details
 def get_return_policy(product_id):
@@ -141,7 +137,6 @@ def get_return_policy(product_id):
     result = cursor.fetchone()
     conn.close()
     return result
-
 
 # ✅ Return Processing Endpoint (Handles AI Response)
 @app.post("/process-return/")
@@ -192,3 +187,7 @@ async def process_return(customer_id: int = Form(...), product_id: int = Form(..
     reason = f"Return request for {product_name} has been accepted."
     ai_response = generate_ai_response("Customer", product_name, purchase_date, True, reason)
     return {"status": "approved", "message": ai_response}
+
+# ✅ Run the API server
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
