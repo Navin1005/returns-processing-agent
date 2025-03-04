@@ -19,8 +19,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Check if the API key is being read
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("❌ ERROR: OPENAI_API_KEY is missing! Please check your environment variables.")
+
 # ✅ Initialize OpenAI client
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.OpenAI(api_key=api_key)
 
 # ✅ Serve React Frontend
 #app.mount("/", StaticFiles(directory="build", html=True), name="static")
