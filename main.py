@@ -20,13 +20,11 @@ app.add_middleware(
 
 # ✅ Load OpenAI API Key from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("ERROR: Missing OPENAI_API_KEY environment variable.")
+
+if not OPENAI_API_KEY or OPENAI_API_KEY.strip() == "":
+    raise ValueError("🚨 ERROR: Missing OPENAI_API_KEY environment variable! Check Railway settings.")
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
-# ✅ Serve React Frontend (Optional, Uncomment if needed)
-# app.mount("/", StaticFiles(directory="build", html=True), name="static")
 
 # ✅ Test API
 @app.get("/api/test")
@@ -35,18 +33,16 @@ def test_api():
 
 # ✅ Database Connection
 def get_db_connection():
-    try:
-        conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASS"),
-            database=os.getenv("DB_NAME"),
-            port=int(os.getenv("PORT", "3306"))  # Default MySQL port
-        )
-        return conn
-    except mysql.connector.Error as err:
-        print(f"Database connection error: {err}")
-        raise HTTPException(status_code=500, detail="Database connection failed.")
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS"),
+        database=os.getenv("DB_NAME"),
+        port=int(os.getenv("PORT", 3306))  # Default MySQL port
+    )
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
 # ✅ Function to generate AI response
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
@@ -188,6 +184,3 @@ async def process_return(customer_id: int = Form(...), product_id: int = Form(..
     ai_response = generate_ai_response("Customer", product_name, purchase_date, True, reason)
     return {"status": "approved", "message": ai_response}
 
-# ✅ Run the API server
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
