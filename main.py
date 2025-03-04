@@ -34,10 +34,13 @@ client = openai.OpenAI(api_key=OPENAI_API_KEY)
 def test_api():
     return {"message": "Backend API is working!"}
 
-# ✅ Run server
 if __name__ == "__main__":
+    import time
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
-    
+    while True:
+        time.sleep(10)  # Prevents Railway from stopping the app
+
+
 # ✅ Function to generate AI response
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
     """Generate a return decision explanation using OpenAI GPT."""
