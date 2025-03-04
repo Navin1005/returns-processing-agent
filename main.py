@@ -9,20 +9,23 @@ import uvicorn
 
 app = FastAPI()
 
-# ✅ Enable CORS for frontend communication
+# ✅ Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with frontend URL in production
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Load OpenAI API Key from environment variables
+# ✅ Load OpenAI API Key with Debugging
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-if not OPENAI_API_KEY or OPENAI_API_KEY.strip() == "":
+if not OPENAI_API_KEY:
+    print("🚨 ERROR: OPENAI_API_KEY is NOT set. Check Railway environment variables.")
     raise ValueError("🚨 ERROR: Missing OPENAI_API_KEY environment variable! Check Railway settings.")
+
+print(f"✅ OpenAI API Key Loaded: {OPENAI_API_KEY[:10]}********")
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
@@ -31,19 +34,10 @@ client = openai.OpenAI(api_key=OPENAI_API_KEY)
 def test_api():
     return {"message": "Backend API is working!"}
 
-# ✅ Database Connection
-def get_db_connection():
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        database=os.getenv("DB_NAME"),
-        port=int(os.getenv("PORT", 3306))  # Default MySQL port
-    )
-
+# ✅ Run server
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
-
+    
 # ✅ Function to generate AI response
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
     """Generate a return decision explanation using OpenAI GPT."""
