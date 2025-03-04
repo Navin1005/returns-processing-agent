@@ -33,11 +33,11 @@ def test_api():
 # ✅ Database Connection
 def get_db_connection():
     return mysql.connector.connect(
-        host="127.0.0.1",  # Use explicit IP instead of "localhost"
-        user=os.getenv("DB_USER", "root"),  # Replace "root" with your DB username if different
-        password=os.getenv("DB_PASS", "root"),  # Replace with your MySQL password
-        database=os.getenv("DB_NAME", "returns_db"),
-        port=3306  # Ensure correct port number
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS"),
+        database=os.getenv("DB_NAME"),
+        port=int(os.getenv("PORT", 8000))
     )
 
 if __name__ == "__main__":

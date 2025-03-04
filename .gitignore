@@ -19,3 +19,11 @@ logs/
 .DS_Store
 .vscode/
 .idea/
+
+__pycache__/
+.venv/
+node_modules/
+.env
+uploads/
+build/
+
