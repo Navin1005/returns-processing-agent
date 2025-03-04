@@ -1,45 +1,57 @@
 import os
 import mysql.connector
 from datetime import datetime, timedelta
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import logging
 
+# Initialize FastAPI app
 app = FastAPI()
 
-# ✅ Enable CORS
+# ✅ Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],  # Replace with frontend URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Load OpenAI API Key with Debugging
+# ✅ Load OpenAI API Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 if not OPENAI_API_KEY:
-    print("🚨 ERROR: OPENAI_API_KEY is NOT set. Check Railway environment variables.")
-    raise ValueError("🚨 ERROR: Missing OPENAI_API_KEY environment variable! Check Railway settings.")
-
-print(f"✅ OpenAI API Key Loaded: {OPENAI_API_KEY[:10]}********")
+    raise ValueError("❌ ERROR: Missing OPENAI_API_KEY environment variable! Check Railway settings.")
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
+logging.info("✅ OpenAI API Key Loaded Successfully!")
+
+# ✅ Root API Endpoint
+@app.get("/")
+def root():
+    return {"message": "Welcome to the Returns Processing API!"}
 
 # ✅ Test API
 @app.get("/api/test")
 def test_api():
     return {"message": "Backend API is working!"}
 
-if __name__ == "__main__":
-    import time
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
-    while True:
-        time.sleep(10)  # Prevents Railway from stopping the app
-
+# ✅ Database Connection Function
+def get_db_connection():
+    try:
+        conn = mysql.connector.connect(
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            database=os.getenv("DB_NAME"),
+            port=int(os.getenv("PORT", 3306))  # Default MySQL port is 3306
+        )
+        return conn
+    except mysql.connector.Error as e:
+        logging.error(f"Database Connection Error: {e}")
+        raise HTTPException(status_code=500, detail="Database connection failed!")
 
 # ✅ Function to generate AI response
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
@@ -68,7 +80,7 @@ def generate_ai_response(customer_name, product_name, purchase_date, return_stat
         ai_message = " ".join(ai_message.splitlines())  # Format into a single-line response
         return ai_message
     except Exception as e:
-        print(f"OpenAI API Error: {e}")
+        logging.error(f"OpenAI API Error: {e}")
         return "There was an issue generating the response."
 
 # ✅ Login Endpoint
@@ -181,3 +193,7 @@ async def process_return(customer_id: int = Form(...), product_id: int = Form(..
     ai_response = generate_ai_response("Customer", product_name, purchase_date, True, reason)
     return {"status": "approved", "message": ai_response}
 
+# ✅ Start the Uvicorn server when running on Railway
+if __name__ == "__main__":
+    print("🚀 Starting FastAPI server...")
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
