@@ -172,7 +172,9 @@ async def get_purchases(customer_id: int):
         cursor.close()
         conn.close()
 
-# ✅ Start the Uvicorn server when running on Railway
 if __name__ == "__main__":
-    logging.info("🚀 Starting FastAPI server...")
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    import os
+    port = int(os.getenv("PORT", 8000))  # Use Railway's provided PORT
+    logging.info(f"🚀 Starting FastAPI server on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
