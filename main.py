@@ -45,15 +45,14 @@ def test_api():
     return {"message": "Backend API is working!"}
 
 def get_db_connection():
-    """Establish MySQL database connection"""
     logging.info(f"🔍 Connecting to DB: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}, User: {os.getenv('DB_USER')}")
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASS"),
-            database=os.getenv("DB_NAME"),
-            port=int(os.getenv("DB_PORT", 3306))
+            host=os.getenv("DB_HOST", "shortline.proxy.rlwy.net"),
+            user=os.getenv("DB_USER", "root"),
+            password=os.getenv("DB_PASS", "oPXNpKvqiltkSMPdcXOTffbtOLvxvYsm"),
+            database=os.getenv("DB_NAME", "railway"),
+            port=int(os.getenv("DB_PORT", 29496))  # Set the Railway MySQL port
         )
         logging.info("✅ Database connection successful!")
         return conn
