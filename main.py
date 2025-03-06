@@ -174,7 +174,7 @@ async def get_purchases(customer_id: int):
 
 if __name__ == "__main__":
     import os
-    port = int(os.getenv("PORT", 8000))  # Use Railway's provided PORT
+    port = int(os.getenv("PORT", 29496))  # Use Railway's provided PORT
     logging.info(f"🚀 Starting FastAPI server on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
