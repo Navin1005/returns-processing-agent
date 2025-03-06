@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import openai
 import uvicorn
 import logging
+from dotenv import load_dotenv
+load_dotenv()  # Ensure this is called at the top before using os.getenv()
+
 
 # ✅ Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -41,12 +44,10 @@ def root():
 def test_api():
     return {"message": "Backend API is working!"}
 
-# ✅ Database Connection Function
 def get_db_connection():
+    logging.info(f"🔍 Connecting to DB: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}, User: {os.getenv('DB_USER')}")
+
     try:
-        # ✅ Print database connection details to logs (ensure no passwords are exposed)
-        logging.info(f"🔍 Connecting to DB: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}, User: {os.getenv('DB_USER')}")
-        
         conn = mysql.connector.connect(
             host=os.getenv("DB_HOST"),
             user=os.getenv("DB_USER"),
