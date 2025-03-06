@@ -7,8 +7,8 @@ import openai
 import uvicorn
 import logging
 from dotenv import load_dotenv
-load_dotenv()  # Ensure this is called at the top before using os.getenv()
 
+load_dotenv()  # Ensure environment variables are loaded
 
 # ✅ Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -30,7 +30,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("❌ ERROR: Missing OPENAI_API_KEY environment variable! Check Railway settings.")
 
-openai.api_key = OPENAI_API_KEY  # ✅ Corrected API key setup
+openai.api_key = OPENAI_API_KEY  # ✅ Set OpenAI API key
 
 logging.info("✅ OpenAI API Key Loaded Successfully!")
 
@@ -45,15 +45,15 @@ def test_api():
     return {"message": "Backend API is working!"}
 
 def get_db_connection():
+    """Establish MySQL database connection"""
     logging.info(f"🔍 Connecting to DB: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}, User: {os.getenv('DB_USER')}")
-
     try:
         conn = mysql.connector.connect(
             host=os.getenv("DB_HOST"),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASS"),
             database=os.getenv("DB_NAME"),
-            port=int(os.getenv("DB_PORT", 3306))  # Default to 3306
+            port=int(os.getenv("DB_PORT", 3306))
         )
         logging.info("✅ Database connection successful!")
         return conn
@@ -106,7 +106,6 @@ def get_return_policy(product_id: int):
 # ✅ Function to generate AI response
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
     """Generate a return decision explanation using OpenAI GPT."""
-    
     prompt = f"""
     Customer Name: {customer_name}
     Product: {product_name}
@@ -149,7 +148,7 @@ async def login(email: str = Form(...)):
         cursor.close()
         conn.close()
 
-# ✅ Fetch Customer Purchases
+# ✅ Fetch Customer Purchases (Fixed Table Case)
 @app.get("/get-purchases/")
 async def get_purchases(customer_id: int):
     """Fetch customer purchases"""
@@ -159,8 +158,8 @@ async def get_purchases(customer_id: int):
         cursor.execute(
             """
             SELECT p.purchase_id, pr.product_name, p.purchase_date, p.product_id
-            FROM Purchases p
-            JOIN Products pr ON p.product_id = pr.product_id
+            FROM purchases p  -- ✅ Fixed table case
+            JOIN products pr ON p.product_id = pr.product_id  -- ✅ Fixed table case
             WHERE p.customer_id = %s
             """,
             (customer_id,)
@@ -173,56 +172,6 @@ async def get_purchases(customer_id: int):
     finally:
         cursor.close()
         conn.close()
-
-# ✅ Return Processing Endpoint (Handles AI Response)
-@app.post("/process-return/")
-async def process_return(customer_id: int = Form(...), product_id: int = Form(...), file: UploadFile = File(...)):
-    """Handles return processing, validates eligibility, and generates AI response."""
-
-    # ✅ Save uploaded file temporarily
-    upload_dir = "uploads"
-    os.makedirs(upload_dir, exist_ok=True)
-    uploaded_image_path = os.path.join(upload_dir, file.filename)
-
-    with open(uploaded_image_path, "wb") as f:
-        f.write(await file.read())  # ✅ Fix async file handling
-
-    # ✅ Check purchase history
-    purchase_date = get_purchase_details(customer_id, product_id)
-    if not purchase_date:
-        return {"status": "rejected", "message": "Return rejected: No purchase record found."}
-
-    # ✅ Fetch return policy
-    return_policy = get_return_policy(product_id)
-    if not return_policy:
-        return {"status": "rejected", "message": "Return rejected: No return policy found."}
-
-    product_name = return_policy["product_name"]
-    return_window_days = int(return_policy["return_window_days"])
-    return_deadline = purchase_date + timedelta(days=return_window_days)
-
-    # ✅ Check return window eligibility
-    current_date = datetime.now().date()
-    if current_date > return_deadline:
-        reason = f"Return period expired. The return window for {product_name} was {return_window_days} days."
-        ai_response = generate_ai_response("Customer", product_name, purchase_date, False, reason)
-        return {"status": "rejected", "message": ai_response}
-
-    # ✅ Additional return conditions
-    if return_policy["acceptable_packaging"] == "Sealed box required":
-        reason = f"Return rejected: {product_name} must be in a sealed box."
-        ai_response = generate_ai_response("Customer", product_name, purchase_date, False, reason)
-        return {"status": "rejected", "message": ai_response}
-
-    if return_policy["acceptable_defects"] == "No Defects Allowed":
-        reason = f"Return rejected: {product_name} cannot have defects."
-        ai_response = generate_ai_response("Customer", product_name, purchase_date, False, reason)
-        return {"status": "rejected", "message": ai_response}
-
-    # ✅ APPROVED RETURN CASE
-    reason = f"Return request for {product_name} has been accepted."
-    ai_response = generate_ai_response("Customer", product_name, purchase_date, True, reason)
-    return {"status": "approved", "message": ai_response}
 
 # ✅ Start the Uvicorn server when running on Railway
 if __name__ == "__main__":
