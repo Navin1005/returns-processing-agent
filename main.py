@@ -27,6 +27,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+FRONTEND_BUILD_DIR = "backend/build"
+
+
 
 # ✅ Load OpenAI API Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
