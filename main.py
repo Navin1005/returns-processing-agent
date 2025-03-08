@@ -37,22 +37,31 @@ openai.api_key = OPENAI_API_KEY
 logging.info("✅ OpenAI API Key Loaded Successfully!")
 
 # ✅ Serve static files for React frontend
-app.mount("/static", StaticFiles(directory="build/static"), name="static")
+FRONTEND_BUILD_DIR = "backend/build"
+
+if not os.path.exists(FRONTEND_BUILD_DIR):
+    logging.error("❌ ERROR: Frontend build directory not found! Run `npm run build` inside the frontend folder.")
+else:
+    app.mount("/static", StaticFiles(directory=f"{FRONTEND_BUILD_DIR}/static"), name="static")
 
 # ✅ Serve React Frontend
 @app.get("/")
 async def serve_homepage():
-    return FileResponse("build/index.html")
+    index_path = os.path.join(FRONTEND_BUILD_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    logging.error("❌ ERROR: index.html not found! Ensure frontend is built and located inside `backend/build`.")
+    return JSONResponse(content={"error": "Frontend not found!"}, status_code=404)
 
 # ✅ Serve React Login Page
 @app.get("/login", response_class=FileResponse)
 async def serve_login_page():
-    return FileResponse("build/index.html")  # ✅ Serves React login page
+    return await serve_homepage()  # ✅ Redirects to index.html (React SPA handles routing)
 
 # ✅ Catch-all route to serve frontend for React Router
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
-    return FileResponse("build/index.html")
+    return await serve_homepage()  # ✅ Redirects unknown routes to React frontend
 
 
 # ✅ Database Connection Function
