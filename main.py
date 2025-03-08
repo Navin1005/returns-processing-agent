@@ -39,10 +39,9 @@ logging.info("✅ OpenAI API Key Loaded Successfully!")
 def root():
     return {"message": "Welcome to the Returns Processing API!"}
 
-
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))  # Railway dynamically assigns PORT
-    logging.info(f"🚀 Starting FastAPI server on port {port}...")
+    port = int(os.getenv("PORT", 8000))  # ✅ Use assigned PORT, default to 8000
+    print(f"🚀 Running FastAPI on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 
