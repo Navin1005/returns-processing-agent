@@ -19,10 +19,10 @@ app = FastAPI()
 # ✅ Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://returns-processing-agent-production.up.railway.app/"],  # Replace with frontend URL in production
+    allow_origins=["https://returns-processing-agent-production.up.railway.app"],  # ✅ Allow only your backend domain
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # ✅ Allow required HTTP methods
+    allow_headers=["*"],  # ✅ Allow all headers
 )
 
 # ✅ Load OpenAI API Key
