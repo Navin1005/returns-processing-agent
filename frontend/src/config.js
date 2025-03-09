@@ -1,1 +1,5 @@
-export const API_URL = "https://returns-processing-agent-production.up.railway.app";  // ✅ Set your backend URL
+const config = {
+    API_URL: "http://127.0.0.1:8000", // ✅ Ensure it points to backend
+};
+
+export default config;
