@@ -38,11 +38,11 @@ logging.info("OpenAI API Key Loaded Successfully!")
 def get_db_connection():
     try:
         return mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="root",
-            database="returns_db",
-            port=3306
+            host="****",
+            user="****",
+            password="***",
+            database="****",
+            port=****
         )
     except mysql.connector.Error as e:
         logging.error(f"Database Connection Error: {e}")
