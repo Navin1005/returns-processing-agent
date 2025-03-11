@@ -18,10 +18,10 @@ model.to(device)
 def get_product_images():
     try:
         conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="root",
-            database="returns_db"
+            host="****",
+            user="***",
+            password="***",
+            database="***"
         )
         cursor = conn.cursor()
         cursor.execute("SELECT product_id, image_path FROM Products")
