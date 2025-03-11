@@ -7,6 +7,7 @@ import openai
 import uvicorn
 import logging
 from dotenv import load_dotenv
+from image_match import compare_uploaded_image  # Importing image comparison function
 
 # Load environment variables
 load_dotenv()
@@ -34,7 +35,7 @@ if not OPENAI_API_KEY:
 openai.api_key = OPENAI_API_KEY
 logging.info("OpenAI API Key Loaded Successfully!")
 
-# ✅ Establish database connection function
+# ✅ Database Connection Function
 def get_db_connection():
     try:
         return mysql.connector.connect(
@@ -47,6 +48,40 @@ def get_db_connection():
     except mysql.connector.Error as e:
         logging.error(f"Database Connection Error: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed!")
+
+# ✅ Fetch Customer Details
+def get_customer_details(customer_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT customer_name FROM customers WHERE customer_id = %s", (customer_id,))
+    customer = cursor.fetchone()
+    conn.close()
+    return customer['customer_name'] if customer else "Valued Customer"
+
+# ✅ Generate AI Response for Return Decision
+def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
+    """Generate a customer-friendly AI response for return request status."""
+    
+    prompt = f"""
+    Customer Name: {customer_name}
+    Product: {product_name}
+    Purchase Date: {purchase_date}
+    Return Status: {"Approved" if return_status else "Rejected"}
+    Reason: {reason}
+
+    Please generate a polite, professional, and informative message addressing the customer, 
+    explaining the decision clearly, and signing off with customer support details.
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "system", "content": prompt}]
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logging.error(f"OpenAI API Error: {e}")
+        return "There was an issue generating the AI response. Please try again."
 
 # ✅ Login Endpoint
 @app.post("/login")
@@ -78,105 +113,91 @@ async def get_purchases(customer_id: int):
         cursor.close()
         conn.close()
 
-# ✅ Function to generate AI response (Fixed JSON)
-def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
-    """Generate an AI-generated return decision message using OpenAI GPT."""
-    
-    prompt = f"""
-    Customer Name: {customer_name}
-    Product: {product_name}
-    Purchase Date: {purchase_date}
-    Return Status: {"Approved" if return_status else "Rejected"}
-    Reason: {reason}
-
-    Please generate a customer-friendly return decision message:
-    - Address the customer by their name.
-    - Use a polite and understanding tone.
-    - If rejected, clearly explain the specific reason.
-    - End with a professional signature from the customer service team.
-    """
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "system", "content": prompt}]
-        )
-        return response["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        logging.error(f"OpenAI API Error: {e}")
-        return "There was an issue generating the AI response. Please try again."
-
-# ✅ Return Processing Endpoint (Handles AI Response)
+# ✅ Process Return Request (Fraud Detection & AI Response)
 @app.post("/process-return/")
-async def process_return(customer_id: int = Form(...), product_id: int = Form(...), file: UploadFile = File(...)):
-    try:
-        os.makedirs("uploads", exist_ok=True)
-        file_path = os.path.join("uploads", file.filename)
-        with open(file_path, "wb") as f:
-            f.write(file.file.read())
+async def process_return(customer_id: int = Form(...), file: UploadFile = File(...)):
+    """Handles return processing by verifying product match, purchase record, and policy compliance."""
+    
+    logging.info(f"Processing return request for customer_id: {customer_id}")
 
-        # ✅ Fetch Product and Return Policy Details (Fixed Table Name)
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+    # Validate customer existence
+    customer_name = get_customer_details(customer_id)
+    if not customer_name:
+        return {"status": "rejected", "message": "Return rejected: Customer not found in the database."}
 
-        cursor.execute("SELECT * FROM products WHERE product_id=%s", (product_id,))
-        product = cursor.fetchone()
-        
-        cursor.execute("SELECT * FROM returnpolicy WHERE product_id=%s", (product_id,))  # FIXED table name
-        policy = cursor.fetchone()
+    # Save uploaded file temporarily
+    upload_dir = "uploads"
+    os.makedirs(upload_dir, exist_ok=True)
+    uploaded_image_path = os.path.join(upload_dir, file.filename)
 
-        cursor.close()
-        conn.close()
+    with open(uploaded_image_path, "wb") as f:
+        f.write(file.file.read())
 
-        if not product or not policy:
-            raise HTTPException(status_code=404, detail="Product or policy not found")
+    # ✅ Image Fraud Detection - Compare uploaded image with database
+    best_match, best_score = compare_uploaded_image(uploaded_image_path)
 
-        # ✅ Fetch purchase details (Fixed Date Format)
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT purchase_date FROM purchases WHERE customer_id=%s AND product_id=%s", 
-                       (customer_id, product_id))
-        purchase_record = cursor.fetchone()
-        cursor.close()
-        conn.close()
+    if best_match is None or best_score < 0.85:
+        reason = "The uploaded product image does not match our records. Ensure the correct product is uploaded."
+        ai_response = generate_ai_response(customer_name, "Unknown Product", "N/A", False, reason)
+        return {"status": "rejected", "message": ai_response}
 
-        if not purchase_record:
-            return {"status": "rejected", "message": "Return rejected: No purchase record found."}
+    product_id = int(best_match)  # Matched Product ID
 
-        # ✅ Convert purchase_date to proper format
-        purchase_date = purchase_record["purchase_date"]
-        if isinstance(purchase_date, str):
-            purchase_date = datetime.strptime(purchase_date, "%Y-%m-%d").date()  # Convert to datetime object
-        
-        return_window_days = int(policy["return_window_days"])
-        return_deadline = purchase_date + timedelta(days=return_window_days)
+    # ✅ Fetch product and return policy details
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM products WHERE product_id=%s", (product_id,))
+    product = cursor.fetchone()
 
-        # ✅ Validate return eligibility
-        current_date = datetime.now().date()
-        if current_date > return_deadline:
-            reason = f"Return period expired. The return window for {product['product_name']} was {return_window_days} days."
-            ai_response = generate_ai_response("Customer", product["product_name"], purchase_date, False, reason)
-            return {"status": "rejected", "message": ai_response}
+    cursor.execute("SELECT * FROM returnpolicy WHERE product_id=%s", (product_id,))
+    policy = cursor.fetchone()
 
-        if policy["packaging_required"] == 1:  
-            reason = f"Return rejected: {product['product_name']} must be in a sealed box."
-            ai_response = generate_ai_response("Customer", product["product_name"], purchase_date, False, reason)
-            return {"status": "rejected", "message": ai_response}
+    cursor.close()
+    conn.close()
 
-        if policy["accepted_defects"] == "No":
-            reason = f"Return rejected: {product['product_name']} cannot have defects."
-            ai_response = generate_ai_response("Customer", product["product_name"], purchase_date, False, reason)
-            return {"status": "rejected", "message": ai_response}
+    if not product or not policy:
+        logging.error(f"Product or return policy not found for product_id: {product_id}")
+        return {"status": "rejected", "message": "Return rejected: Product or policy not found."}
 
-        # ✅ APPROVED RETURN CASE
-        reason = f"Return request for {product['product_name']} has been accepted."
-        ai_response = generate_ai_response("Customer", product["product_name"], purchase_date, True, reason)
-        return {"status": "approved", "message": ai_response}
+    # ✅ Fetch purchase details
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT purchase_date FROM purchases WHERE customer_id=%s AND product_id=%s", 
+                   (customer_id, product_id))
+    purchase_record = cursor.fetchone()
+    cursor.close()
+    conn.close()
 
-    except Exception as e:
-        logging.error(f"Return Processing Error: {e}")
-        raise HTTPException(status_code=500, detail="Return processing failed!")
+    if not purchase_record:
+        return {"status": "rejected", "message": "Return rejected: No purchase record found."}
 
-# ✅ Start FastAPI Locally
+    purchase_date = purchase_record["purchase_date"]
+    return_window_days = int(policy["return_window_days"])
+    return_deadline = purchase_date + timedelta(days=return_window_days)
+
+    # ✅ Return Eligibility Check
+    current_date = datetime.now().date()
+    
+    if current_date > return_deadline:
+        reason = f"Return period expired. The return window for {product['product_name']} was {return_window_days} days."
+        ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, False, reason)
+        return {"status": "rejected", "message": ai_response}
+
+    if policy["packaging_required"] == 1:  # 1 = Packaging Required
+        reason = f"Return rejected: {product['product_name']} must be in original sealed packaging."
+        ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, False, reason)
+        return {"status": "rejected", "message": ai_response}
+
+    if policy["accepted_defects"] == "No Defects Allowed":
+        reason = f"Return rejected: {product['product_name']} cannot have defects or damages."
+        ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, False, reason)
+        return {"status": "rejected", "message": ai_response}
+
+    # ✅ Approved Return
+    reason = f"Return request for {product['product_name']} has been approved. Please follow return instructions."
+    ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, True, reason)
+    return {"status": "approved", "message": ai_response}
+
+# ✅ Start FastAPI Server
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
