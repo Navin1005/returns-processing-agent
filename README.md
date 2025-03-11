@@ -37,15 +37,18 @@ sh
 Copy
 Edit
 pip install -r requirements.txt
+
 3️⃣ Set Up Database
 Create a MySQL database named returns_db
 Import the provided SQL schema (if available)
+
 4️⃣ Run the FastAPI Server
 sh
 Copy
 Edit
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 Open http://127.0.0.1:8000/docs to access the Swagger UI.
+
 🔍 API Endpoints
 🔹 Authentication
 POST /login → Customer login with email
@@ -53,12 +56,15 @@ POST /login → Customer login with email
 GET /get-purchases/?customer_id={id} → Retrieve purchase history
 🔹 Process Returns
 POST /process-return/ → Upload product image & verify return eligibility
+
+
 📸 Image Matching Process
 Upload product image.
 Compare with stored images using CLIP Model.
 Determine if the product matches any existing records.
 Validate against purchase history and return policy.
 Approve or reject the return with an AI-generated explanation.
+
 🔬 Testing Scenarios
 Valid Return: Customer purchased the product and meets return conditions.
 Invalid Product Image: Uploaded image doesn't match the product in the database.
@@ -66,12 +72,14 @@ Return Window Expired: Product return request is beyond the allowed timeframe.
 Incorrect Packaging: Product not returned in required original packaging.
 Defective Item Restriction: Product contains defects that violate return policies.
 Unauthorized Purchase: Attempting to return a product not purchased by the user.
+
 🚧 Future Enhancements
 🔹 Real-time Fraud Detection – Improve accuracy with deep learning models.
 🔹 Integration with E-commerce APIs – Fetch live purchase records.
 🔹 Policy Customization – Allow businesses to define custom return rules.
 🔹 User-friendly Dashboard – Provide a frontend interface for customers & admins.
 🔹 Multi-language Support – Improve accessibility with AI-driven translations.
+
 ⚠️ Limitations
 🚫 No Live Deployment – This project currently runs locally only.
 🚫 Image Similarity Threshold – CLIP model matching may require tuning.
