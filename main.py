@@ -7,7 +7,7 @@ import openai
 import uvicorn
 import logging
 from dotenv import load_dotenv
-from image_match import compare_uploaded_image  # Importing image comparison function
+from image_match import compare_uploaded_image  # Image matching for fraud detection
 
 # Load environment variables
 load_dotenv()
@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Initialize FastAPI app
 app = FastAPI()
 
-# ✅ Enable CORS for frontend communication
+# Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  
@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Load OpenAI API Key
+# Load OpenAI API Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("ERROR: Missing OPENAI_API_KEY environment variable!")
@@ -35,21 +35,21 @@ if not OPENAI_API_KEY:
 openai.api_key = OPENAI_API_KEY
 logging.info("OpenAI API Key Loaded Successfully!")
 
-# ✅ Database Connection Function
+# Establish Database Connection
 def get_db_connection():
     try:
         return mysql.connector.connect(
-            host="****",
-            user="****",
-            password="***",
-            database="****",
-            port=****
+            host="localhost",
+            user="root",
+            password="root",
+            database="returns_db",
+            port=3306
         )
     except mysql.connector.Error as e:
         logging.error(f"Database Connection Error: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed!")
 
-# ✅ Fetch Customer Details
+# Fetch Customer Details
 def get_customer_details(customer_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -58,19 +58,24 @@ def get_customer_details(customer_id):
     conn.close()
     return customer['customer_name'] if customer else "Valued Customer"
 
-# ✅ Generate AI Response for Return Decision
+# Generate AI Response for Return Decision
 def generate_ai_response(customer_name, product_name, purchase_date, return_status, reason):
-    """Generate a customer-friendly AI response for return request status."""
+    """Generate a professional AI response for the return request."""
     
     prompt = f"""
-    Customer Name: {customer_name}
-    Product: {product_name}
-    Purchase Date: {purchase_date}
-    Return Status: {"Approved" if return_status else "Rejected"}
-    Reason: {reason}
+    Dear {customer_name},
 
-    Please generate a polite, professional, and informative message addressing the customer, 
-    explaining the decision clearly, and signing off with customer support details.
+    We have processed your return request for {product_name}, purchased on {purchase_date}.
+    Return Status: {"Approved" if return_status else "Rejected"}
+
+    Reason for Decision:
+    {reason}
+
+    If you have any further questions, feel free to contact our customer support team. 
+    We appreciate your understanding and thank you for choosing our services.
+
+    Best Regards,
+    Returns Management Team
     """
 
     try:
@@ -83,7 +88,7 @@ def generate_ai_response(customer_name, product_name, purchase_date, return_stat
         logging.error(f"OpenAI API Error: {e}")
         return "There was an issue generating the AI response. Please try again."
 
-# ✅ Login Endpoint
+# Login Endpoint
 @app.post("/login")
 async def login(email: str = Form(...)):
     conn = get_db_connection()
@@ -96,7 +101,7 @@ async def login(email: str = Form(...)):
         cursor.close()
         conn.close()
 
-# ✅ Fetch Customer Purchases
+# Fetch Customer Purchases
 @app.get("/get-purchases/")
 async def get_purchases(customer_id: int):
     conn = get_db_connection()
@@ -113,7 +118,7 @@ async def get_purchases(customer_id: int):
         cursor.close()
         conn.close()
 
-# ✅ Process Return Request (Fraud Detection & AI Response)
+# Process Return Request (Fraud Detection & AI Response)
 @app.post("/process-return/")
 async def process_return(customer_id: int = Form(...), file: UploadFile = File(...)):
     """Handles return processing by verifying product match, purchase record, and policy compliance."""
@@ -133,7 +138,7 @@ async def process_return(customer_id: int = Form(...), file: UploadFile = File(.
     with open(uploaded_image_path, "wb") as f:
         f.write(file.file.read())
 
-    # ✅ Image Fraud Detection - Compare uploaded image with database
+    # Image Fraud Detection - Compare uploaded image with database
     best_match, best_score = compare_uploaded_image(uploaded_image_path)
 
     if best_match is None or best_score < 0.85:
@@ -141,9 +146,9 @@ async def process_return(customer_id: int = Form(...), file: UploadFile = File(.
         ai_response = generate_ai_response(customer_name, "Unknown Product", "N/A", False, reason)
         return {"status": "rejected", "message": ai_response}
 
-    product_id = int(best_match)  # Matched Product ID
+    product_id = int(best_match)
 
-    # ✅ Fetch product and return policy details
+    # Fetch product and return policy details
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT * FROM products WHERE product_id=%s", (product_id,))
@@ -156,10 +161,9 @@ async def process_return(customer_id: int = Form(...), file: UploadFile = File(.
     conn.close()
 
     if not product or not policy:
-        logging.error(f"Product or return policy not found for product_id: {product_id}")
         return {"status": "rejected", "message": "Return rejected: Product or policy not found."}
 
-    # ✅ Fetch purchase details
+    # Fetch purchase details
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT purchase_date FROM purchases WHERE customer_id=%s AND product_id=%s", 
@@ -175,7 +179,7 @@ async def process_return(customer_id: int = Form(...), file: UploadFile = File(.
     return_window_days = int(policy["return_window_days"])
     return_deadline = purchase_date + timedelta(days=return_window_days)
 
-    # ✅ Return Eligibility Check
+    # Return Eligibility Check
     current_date = datetime.now().date()
     
     if current_date > return_deadline:
@@ -183,21 +187,11 @@ async def process_return(customer_id: int = Form(...), file: UploadFile = File(.
         ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, False, reason)
         return {"status": "rejected", "message": ai_response}
 
-    if policy["packaging_required"] == 1:  # 1 = Packaging Required
-        reason = f"Return rejected: {product['product_name']} must be in original sealed packaging."
-        ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, False, reason)
-        return {"status": "rejected", "message": ai_response}
-
-    if policy["accepted_defects"] == "No Defects Allowed":
-        reason = f"Return rejected: {product['product_name']} cannot have defects or damages."
-        ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, False, reason)
-        return {"status": "rejected", "message": ai_response}
-
-    # ✅ Approved Return
+    # Approved Return
     reason = f"Return request for {product['product_name']} has been approved. Please follow return instructions."
     ai_response = generate_ai_response(customer_name, product["product_name"], purchase_date, True, reason)
     return {"status": "approved", "message": ai_response}
 
-# ✅ Start FastAPI Server
+# Start FastAPI Server
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
